@@ -1,0 +1,7 @@
+lib
+lys.c
+lys.h
+lys.json
+main
+*.o
+*.gch
