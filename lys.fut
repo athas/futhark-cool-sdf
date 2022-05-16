@@ -70,7 +70,18 @@ module evalf32 = mk_eval f32
 
 def radius_at (t: f32) (p: vec3) : f32 =
   let (u,v) = uv p
-  let code : [](inst f32) = [#swap, #pop, #const 20, #mul, #const f32.pi, #mul, #add, #sin, #const 1, #add]
+  let code : [](inst f32) = [#swap,
+                             #pop,
+                             #const 20,
+                             #mul,
+                             #const f32.pi,
+                             #mul,
+                             #add,
+                             #sin,
+                             #const 1,
+                             #add,
+                             #const 0.5,
+                             #mul]
   let k = 3
   in head (evalf32.exec (replicate k 0 with [0:3] = [t,u,v]) 3 code)
 
