@@ -105,12 +105,25 @@ def grad f x = vjp f x 1f32
 def distance_field_normal t pos =
   vec3.normalise (grad (sdf t) pos)
 
-def camera_ray width height i j =
-  let fov = f32.pi/3
-  let x = (f32.i64 i + 0.5) - f32.i64 width/2
-  let y = -(f32.i64 j + 0.5) + f32.i64 height/2
-  let z = -(f32.i64 height)/(2*f32.tan(fov/2))
-  in vec3.normalise {x,y,z}
+def camera_ray origin width height i j =
+  let fov = 50
+  let target = {x=0,y=0,z=0}
+  let eye_dir = vec3.(target - origin)
+  let eye_vector = vec3.(normalise eye_dir)
+  let vp_right = vec3.normalise (vec3.cross eye_vector {x=0,y=1,z=0})
+  let vp_up = vec3.normalise (vec3.cross vp_right eye_vector)
+  let fov_radians = f32.pi * (f32.i32 fov / 2) / 180
+  let height_width_ratio = f32.i64 height / f32.i64 width
+  let half_width = f32.tan fov_radians
+  let half_height = height_width_ratio * half_width
+  let camera_width = half_width * 2
+  let camera_height = half_height * 2
+  let pixel_width = camera_width / (f32.i64 width - 1)
+  let pixel_height = camera_height / (f32.i64 height - 1)
+
+  let xcomp = vec3.scale ((f32.i64 i * pixel_width) - half_width) vp_right
+  let ycomp = vec3.scale ((f32.i64 j * pixel_height) - half_height) vp_up
+  in vec3.(normalise (eye_vector + xcomp + ycomp))
 
 def grey (light: f32) : u32 =
   let x = u32.f32(255 * f32.min 1 (f32.max 0 light))
@@ -118,8 +131,10 @@ def grey (light: f32) : u32 =
 
 def frame (width: i64) (height: i64) (t: f32) =
   let f j i =
-    let dir = camera_ray width height i j
-    in match trace t {x=0, y=0, z=3} dir
+    let dist = 3
+    let origin = dist `vec3.scale` (t `vec3.rot_x` vec3.normalise {x=1,y=1,z= -3})
+    let dir = camera_ray origin width height i j
+    in match trace t origin dir
        case #miss ->
          0xFFFFFF
        case #hit hit ->
