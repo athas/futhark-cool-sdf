@@ -2,7 +2,6 @@ import "lib/github.com/diku-dk/lys/lys"
 import "lib/github.com/athas/vector/vspace"
 
 type inst 'a = #const a
-             | #dup
              | #pop
              | #swap
              | #add
@@ -12,6 +11,7 @@ type inst 'a = #const a
              | #cos
              | #sin
              | #sqrt
+             | #over i64
 
 local module type num = {
   type t
@@ -36,8 +36,8 @@ module mk_eval(P: num) : {
         match inst
         case #const v ->
           (top+1, stack with [top] = v)
-        case #dup ->
-          (top+1, stack with [top] = copy (stack[top-1]))
+        case #over i ->
+          (top+1, stack with [top] = copy (stack[top-i]))
         case #pop ->
           (top-1, stack)
         case #swap ->
@@ -66,31 +66,40 @@ def uv (p: vec3) : (f32,f32) =
   in (0.5 + f32.atan2 d.x d.z / (2*f32.pi),
       0.5 + f32.asin d.y / f32.pi)
 
-def xyz (theta: f32) (phi: f32) : vec3 =
-  let rho = 1
-  let x = rho * f32.sin phi * f32.cos theta
-  let y = rho * f32.sin phi * f32.sin theta
-  let z = rho * f32.cos phi
-  in {x,y,z}
-
 module evalf32 = mk_eval f32
 
 def radius_at (t: f32) (p: vec3) : f32 =
   let (u,v) = uv p
-  let code : [](inst f32) = [#swap,
-                             #pop,
-                             #const 20,
-                             #mul,
-                             #const f32.pi,
-                             #mul,
-                             #add,
-                             #sin,
-                             #const 1,
-                             #add,
-                             #const 0.5,
-                             #mul]
-  let k = 3
-  in head (evalf32.exec (replicate k 0 with [0:3] = [t,u,v]) 3 code)
+  let code : [](inst f32) = [#const (20*f32.pi), -- T U V K
+                             #mul,               -- T U V'
+                             #over 3,            -- T U V' T
+                             #add,               -- T U V'
+                             #cos,               -- T U V'
+                             #over 2,            -- T U V' T
+                             #sin,               -- T U V' T'
+                             #mul,               -- T U V'
+                             #const 1,           -- T U V' 1
+                             #add,               -- T U V'
+                             #const 0.5,         -- T U V' 0.5
+                             #mul,               -- T U V'
+
+                             #swap,              -- T V' U
+                             #const (20*f32.pi), -- T V' U K
+                             #mul,               -- T V' U'
+                             #over 2,            -- T V' U' T
+                             #add,               -- T V' U'
+                             #sin,               -- T V' U'
+                             #over 2,            -- T V' U' T
+                             #sin,               -- T V' U' T'
+                             #mul,               -- T V' U'
+                             #const 1,           -- T V' U' 1
+                             #add,               -- T V' U'
+                             #const 0.5,         -- T V' U' 0.5
+                             #mul,               -- T V' U'
+                             #add                -- T VU
+                            ]
+  let k = 4
+  in (evalf32.exec (replicate k 0 with [0:3] = [t,u,v]) 3 code)[1]
 
 def sdf (t: f32) (p: vec3) : f32 =
   vec3.norm p - radius_at t p
@@ -136,15 +145,15 @@ def grey (light: f32) : u32 =
   let x = u32.f32(255 * f32.min 1 (f32.max 0 light))
   in (x << 16) | (x << 8) | x
 
-def frame (width: i64) (height: i64) (t: f32) =
+def frame {x=rot_x,y=rot_y} (width: i64) (height: i64) (t: f32) =
   let f j i =
     let dist = 3
     let origin = vec3.normalise {x=1,y=2,z= -3}
-                 |> vec3.rot_y t
-                 |> vec3.rot_x ((0.5 * f32.sin t))
+                 |> vec3.rot_y rot_y
+                 |> vec3.rot_x rot_x
                  |> vec3.scale dist
     let dir = camera_ray origin width height i j
-    in match trace 0 origin dir
+    in match trace t origin dir
        case #miss ->
          0xFFFFFF
        case #hit hit ->
@@ -155,7 +164,8 @@ def frame (width: i64) (height: i64) (t: f32) =
 
 type state = {time: f32, h: i64, w: i64,
               moving: (i64, i64),
-              mouse: (i64, i64),
+              mouse: {x:i32, y:i32},
+              rot: {x: f32, y: f32},
               radius: i64,
               paused: bool
              }
@@ -179,13 +189,17 @@ def move (x: i64, y: i64) (dx,dy) = (x+dx, y+dy)
 def diff (x1: i64, y1: i64) (x2, y2) = (x2 - x1, y2 - y1)
 
 entry render (s: state) =
-  frame s.w s.h s.time
+  frame {x=s.rot.x, y=s.rot.y} s.w s.h s.time
 
 entry key (e: i32) (key: i32) (s: state): state =
   if e == 0 then keydown key s else keyup key s
 
-entry mouse (_buttons: i32) (x: i32) (y: i32) (s: state): state =
-  s with mouse = (i64.i32 y, i64.i32 x)
+entry mouse (buttons: i32) (y: i32) (x: i32) (s: state): state =
+  s with mouse = {x, y}
+    with rot = if buttons != 0
+               then {x = s.rot.x - (f32.i32 (x-s.mouse.x) / f32.i64 s.w),
+                     y = s.rot.y + (f32.i32 (y-s.mouse.y) / f32.i64 s.h)}
+               else s.rot
 
 entry wheel (_dx: i32) (dy: i32) (s: state): state =
   s with radius = i64.max 0 (s.radius + i64.i32 dy)
@@ -199,7 +213,8 @@ entry resize (h: i64) (w: i64) (s: state) : state =
 entry init (_seed: u32) (h: i64) (w: i64): state =
   {time = 0, w, h,
    moving = (0,0),
-   mouse = (0,0),
+   mouse = {x=0,y=0},
+   rot = {x=0,y=0},
    radius = 20,
    paused = false
   }
