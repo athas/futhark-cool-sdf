@@ -66,6 +66,13 @@ def uv (p: vec3) : (f32,f32) =
   in (0.5 + f32.atan2 d.x d.z / (2*f32.pi),
       0.5 + f32.asin d.y / f32.pi)
 
+def xyz (theta: f32) (phi: f32) : vec3 =
+  let rho = 1
+  let x = rho * f32.sin phi * f32.cos theta
+  let y = rho * f32.sin phi * f32.sin theta
+  let z = rho * f32.cos phi
+  in {x,y,z}
+
 module evalf32 = mk_eval f32
 
 def radius_at (t: f32) (p: vec3) : f32 =
@@ -132,9 +139,12 @@ def grey (light: f32) : u32 =
 def frame (width: i64) (height: i64) (t: f32) =
   let f j i =
     let dist = 3
-    let origin = dist `vec3.scale` (t `vec3.rot_x` vec3.normalise {x=1,y=1,z= -3})
+    let origin = vec3.normalise {x=1,y=2,z= -3}
+                 |> vec3.rot_y t
+                 |> vec3.rot_x ((0.5 * f32.sin t))
+                 |> vec3.scale dist
     let dir = camera_ray origin width height i j
-    in match trace t origin dir
+    in match trace 0 origin dir
        case #miss ->
          0xFFFFFF
        case #hit hit ->

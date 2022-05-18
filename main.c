@@ -45,8 +45,6 @@ static uint32_t* run_interactive(struct futhark_context *futctx,
 
   futhark_entry_init(ctx.fut, &ctx.state, seed, height, width);
 
-  SDL_ASSERT(TTF_Init() == 0);
-
   struct internal internal;
   ctx.event_handler_data = (void*) &internal;
   internal.show_text = show_text_initial;
