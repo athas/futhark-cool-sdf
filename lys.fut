@@ -55,6 +55,8 @@ module mk_eval(P: num) : {
           (top, stack with [top-1] = copy (P.cos stack[top-1]))
         case #sin ->
           (top, stack with [top-1] = copy (P.sin stack[top-1]))
+        case #sqrt ->
+          (top, stack with [top-1] = copy (P.sqrt stack[top-1]))
     in stack'
 }
 
