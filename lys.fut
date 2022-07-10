@@ -43,7 +43,7 @@ def decode [n] (words: [n]u32) : []inst' =
   in take w acc
 
 def radius_at (program: []inst') t u v : f32 =
-  let k = 3
+  let k = 4
   let var x = match x case #t -> t
                       case #u -> u
                       case #v -> v
