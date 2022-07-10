@@ -14,8 +14,8 @@ lys.o: lys.c
 main.o: main.c lys.c
 	$(CC) -c $< $(CFLAGS) -I.
 
-lys.c: lys.fut
-	futhark $(LYS_BACKEND) --library $^
+lys.c: lys.fut interpret.fut
+	futhark $(LYS_BACKEND) --library $<
 
 main: main.o lys.o lib/github.com/diku-dk/lys/liblys.c lib/github.com/diku-dk/lys/liblys.h lib/github.com/diku-dk/lys/context_setup.c lib/github.com/diku-dk/lys/context_setup.h
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS) -I. -DPROGHEADER='"lys.h"'
