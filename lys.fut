@@ -167,37 +167,6 @@ entry step (td: f32) (s: state): state =
 entry resize (h: i64) (w: i64) (s: state) : state =
   s with h = h with w = w
 
-def code : []inst' =
-  [#var #v,            -- V
-   #const (20*f32.pi), -- V K
-   #mul,               -- V'
-   #var #t,            -- V' T
-   #add,               -- V'
-   #cos,               -- V'
-   #var #t,            -- V' T
-   #sin,               -- V' T'
-   #mul,               -- V'
-   #const 1,           -- V' 1
-   #add,               -- V'
-   #const 0.5,         -- V' 0.5
-   #mul,               -- V'
-
-   #var #u,            -- V' U
-   #const (20*f32.pi), -- V' U K
-   #mul,               -- V' U'
-   #var #t,            -- V' U' T
-   #add,               -- V' U'
-   #sin,               -- V' U'
-   #var #t,            -- V' U' T
-   #sin,               -- V' U' T'
-   #mul,               -- V' U'
-   #const 1,           -- V' U' 1
-   #add,               -- V' U'
-   #const 0.5,         -- V' U' 0.5
-   #mul,               -- V' U'
-   #add                -- VU
-  ]
-
 entry init (program: []u32) (_seed: u32) (h: i64) (w: i64): state =
   {time = 0, w, h,
    moving = (0,0),
