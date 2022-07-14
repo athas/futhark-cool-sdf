@@ -27,9 +27,9 @@ void load_program(struct lys_context *ctx, struct internal *internal) {
   struct futhark_u32_1d *program_arr = futhark_new_u32_1d(ctx->fut, internal->program, internal->program_len);
   struct futhark_opaque_state *new_state;
   FUT_CHECK(ctx->fut, futhark_entry_set_program(ctx->fut, &new_state, program_arr, ctx->state));
-  futhark_free_opaque_state(ctx->fut, ctx->state);
+  FUT_CHECK(ctx->fut, futhark_free_opaque_state(ctx->fut, ctx->state));
   ctx->state = new_state;
-  futhark_free_u32_1d(ctx->fut, program_arr);
+  FUT_CHECK(ctx->fut, futhark_free_u32_1d(ctx->fut, program_arr));
   free(internal->program);
   internal->program = NULL;
 }
@@ -99,7 +99,6 @@ static void run_interactive(struct futhark_context *futctx,
 
   struct expr *e = parse_expr(default_expr);
   assert(e != NULL);
-
   internal.program = encode_expr(e, &internal.program_len);
   free_expr(e);
 
