@@ -167,12 +167,15 @@ entry step (td: f32) (s: state): state =
 entry resize (h: i64) (w: i64) (s: state) : state =
   s with h = h with w = w
 
-entry init (program: []u32) (_seed: u32) (h: i64) (w: i64): state =
+entry init (_seed: u32) (h: i64) (w: i64): state =
   {time = 0, w, h,
    moving = (0,0),
    mouse = {x=0,y=0},
    rot = {x=0,y=0},
    radius = 20,
    paused = false,
-   program = decode program
+   program = []
 }
+
+entry set_program (program: []u32) (s: state) : state =
+  s with program = decode program

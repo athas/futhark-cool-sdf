@@ -342,12 +342,13 @@ struct expr* parse_expr(const char *input) {
   const char **s = &input;
   struct expr* e = parse_e2(s);
   if (**s != 0) {
-    puts("Parse error here:");
-    puts(orig);
+    fputs("Parse error here:\n", stderr);
+    fputs(orig, stderr);
+    fputs("\n", stderr);
     for (int i = 0; i < *s - orig; i++) {
-      putchar(' ');
+      fputc(' ', stderr);
     }
-    puts("^");
+    fputs("^\n", stderr);
     if (e != NULL)
       free_expr(e);
     return NULL;;
@@ -367,6 +368,7 @@ static void encode_expr_worker(const struct expr* e, uint32_t *words, int* w) {
     } else if (strcmp(e->payload.var, "t") == 0) {
       words[(*w)++] = 0;
     } else {
+      fprintf(stderr, "Unknown variable: %s\n", e->payload.var);
       abort();
     }
     break;

@@ -11,7 +11,7 @@ all: main
 lys.o: lys.c
 	$(CC) -c $^ $(CFLAGS) -w
 
-main.o: main.c lys.c
+main.o: main.c lys.c expr.h
 	$(CC) -c $< $(CFLAGS) -I.
 
 lys.c: lys.fut interpret.fut

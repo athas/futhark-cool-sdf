@@ -1,9 +1,10 @@
-#define _XOPEN_SOURCE
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <pthread.h>
 
 #define PROGHEADER "lys.h"
 #include "lib/github.com/diku-dk/lys/liblys.h"
@@ -17,11 +18,28 @@
 
 struct internal {
   bool show_text;
+  uint32_t* program;
+  int program_len;
+  pthread_mutex_t mutex;
 };
 
+void load_program(struct lys_context *ctx, struct internal *internal) {
+  struct futhark_u32_1d *program_arr = futhark_new_u32_1d(ctx->fut, internal->program, internal->program_len);
+  struct futhark_opaque_state *new_state;
+  FUT_CHECK(ctx->fut, futhark_entry_set_program(ctx->fut, &new_state, program_arr, ctx->state));
+  futhark_free_opaque_state(ctx->fut, ctx->state);
+  ctx->state = new_state;
+  futhark_free_u32_1d(ctx->fut, program_arr);
+  free(internal->program);
+  internal->program = NULL;
+}
+
 void loop_iteration(struct lys_context *ctx, struct internal *internal) {
-  (void)ctx;
-  (void)internal;
+  pthread_mutex_lock(&internal->mutex);
+  if (internal->program != NULL) {
+    load_program(ctx, internal);
+  }
+  pthread_mutex_unlock(&internal->mutex);
 }
 
 void handle_event(struct lys_context *ctx, enum lys_event event) {
@@ -35,6 +53,36 @@ void handle_event(struct lys_context *ctx, enum lys_event event) {
   }
 }
 
+const char* default_expr = "(1+sin(u*20*3+t)*sin(t))/2 + (1+cos(v*20*3+t)*sin(t))/2";
+
+void* ui_thread_fn(void* arg) {
+  struct internal* internal = arg;
+
+  char* line = NULL;
+  size_t bufsize;
+  ssize_t linelen;
+
+  printf("> ");
+  fflush(stdout);
+  while ((linelen = getline(&line, &bufsize, stdin)) != -1) {
+    line[linelen-1] = 0;
+    struct expr *e = parse_expr(line);
+
+    if (e != NULL) {
+      pthread_mutex_lock(&internal->mutex);
+      free(internal->program);
+      internal->program = encode_expr(e, &internal->program_len);
+      pthread_mutex_unlock(&internal->mutex);
+      free_expr(e);
+    }
+    printf("> ");
+    fflush(stdout);
+  }
+  printf("\n");
+  exit(0);
+}
+
+
 static void run_interactive(struct futhark_context *futctx,
                             int width, int height, int seed,
                             bool show_text_initial) {
@@ -45,15 +93,22 @@ static void run_interactive(struct futhark_context *futctx,
   ctx.event_handler_data = NULL;
   ctx.event_handler = handle_event;
 
-  struct expr *e = parse_expr("(1+sin(u*20*3+t)*sin(t))/2 + (1+cos(v*20*3+t)*sin(t))/2");
+  struct internal internal;
+  internal.show_text = show_text_initial;
+  pthread_mutex_init(&internal.mutex, NULL);
+
+  struct expr *e = parse_expr(default_expr);
   assert(e != NULL);
 
-  int len;
-  int err;
-  uint32_t* program = encode_expr(e, &len);
+  internal.program = encode_expr(e, &internal.program_len);
+  free_expr(e);
 
-  struct futhark_u32_1d *program_arr = futhark_new_u32_1d(ctx.fut, program, len);
-  err = futhark_entry_init(ctx.fut, &ctx.state, program_arr, seed, height, width);
+  int err = 0;
+
+  err |= futhark_entry_init(ctx.fut, &ctx.state, seed, height, width);
+
+  load_program(&ctx, &internal);
+
   err |= futhark_context_sync(ctx.fut);
 
   if (err != 0) {
@@ -63,9 +118,10 @@ static void run_interactive(struct futhark_context *futctx,
     return;
   }
 
-  struct internal internal;
   ctx.event_handler_data = (void*) &internal;
-  internal.show_text = show_text_initial;
+
+  pthread_t ui_thread;
+  pthread_create(&ui_thread, NULL, ui_thread_fn, &internal);
 
   lys_run_sdl(&ctx);
 }
