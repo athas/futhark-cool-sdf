@@ -66,7 +66,9 @@ def trace program t (orig: vec3) (dir: vec3) : hit =
 def grad f x = vjp f x 1f32
 
 def distance_field_normal program t pos =
-  vec3.normalise (grad (sdf program t) pos)
+  vec3.normalise {x=jvp (sdf program t) pos {x=1,y=0,z=0},
+                  y=jvp (sdf program t) pos {x=0,y=1,z=0},
+                  z=jvp (sdf program t) pos {x=0,y=0,z=1}}
 
 def camera_ray origin width height i j =
   let fov = 50

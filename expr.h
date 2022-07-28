@@ -282,7 +282,8 @@ struct expr* parse_e1(const char **s) {
       if (rhs) {
         lhs = mk_binop(lhs, MUL, rhs);
       } else {
-        return lhs;
+        free_expr(lhs);
+        return NULL;
       }
     }
       break;
@@ -293,7 +294,8 @@ struct expr* parse_e1(const char **s) {
       if (rhs) {
         lhs = mk_binop(lhs, DIV, rhs);
       } else {
-        return lhs;
+        free_expr(lhs);
+        return NULL;
       }
     }
       break;
@@ -316,7 +318,8 @@ struct expr* parse_e2(const char **s) {
       if (rhs) {
         lhs = mk_binop(lhs, ADD, rhs);
       } else {
-        return lhs;
+        free_expr(lhs);
+        return NULL;
       }
     }
       break;
@@ -327,7 +330,8 @@ struct expr* parse_e2(const char **s) {
       if (rhs) {
         lhs = mk_binop(lhs, SUB, rhs);
       } else {
-        return lhs;
+        free_expr(lhs);
+        return NULL;
       }
     }
       break;
@@ -341,7 +345,7 @@ struct expr* parse_expr(const char *input) {
   const char * const orig = input;
   const char **s = &input;
   struct expr* e = parse_e2(s);
-  if (**s != 0) {
+  if (e == NULL) {
     fputs("Parse error here:\n", stderr);
     fputs(orig, stderr);
     fputs("\n", stderr);
@@ -349,8 +353,9 @@ struct expr* parse_expr(const char *input) {
       fputc(' ', stderr);
     }
     fputs("^\n", stderr);
-    if (e != NULL)
+    if (e != NULL) {
       free_expr(e);
+    }
     return NULL;;
   } else {
     return e;
