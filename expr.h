@@ -345,7 +345,7 @@ struct expr* parse_expr(const char *input) {
   const char * const orig = input;
   const char **s = &input;
   struct expr* e = parse_e2(s);
-  if (e == NULL) {
+  if (e == NULL || **s != 0) {
     fputs("Parse error here:\n", stderr);
     fputs(orig, stderr);
     fputs("\n", stderr);
@@ -362,7 +362,7 @@ struct expr* parse_expr(const char *input) {
   }
 }
 
-static void encode_expr_worker(const struct expr* e, uint64_t *words, int* w) {
+static int encode_expr_worker(const struct expr* e, uint64_t *words, int* w) {
   switch (e->tag) {
   case VAR: {
     uint64_t v;
@@ -374,7 +374,7 @@ static void encode_expr_worker(const struct expr* e, uint64_t *words, int* w) {
       v = 0;
     } else {
       fprintf(stderr, "Unknown variable: %s\n", e->payload.var);
-      abort();
+      return 1;
     }
     words[(*w)++] = (v<<32) | 1;
   }
@@ -383,8 +383,12 @@ static void encode_expr_worker(const struct expr* e, uint64_t *words, int* w) {
     words[(*w)++] = (*(uint64_t*)(&e->payload.val)) << 32;
     break;
   case BINOP:
-    encode_expr_worker(e->payload.binop.lhs, words, w);
-    encode_expr_worker(e->payload.binop.rhs, words, w);
+    if (encode_expr_worker(e->payload.binop.lhs, words, w) != 0) {
+      return 1;
+    }
+    if (encode_expr_worker(e->payload.binop.rhs, words, w) != 0) {
+      return 1;
+    }
     switch (e->payload.binop.op) {
     case ADD:
       words[(*w)++] = 4;
@@ -401,7 +405,9 @@ static void encode_expr_worker(const struct expr* e, uint64_t *words, int* w) {
     }
     break;
   case FUN:
-    encode_expr_worker(e->payload.fun.arg, words, w);
+    if (encode_expr_worker(e->payload.fun.arg, words, w) != 0) {
+      return 1;
+    }
     switch (e->payload.fun.op) {
     case COS:
       words[(*w)++] = 8;
@@ -412,11 +418,17 @@ static void encode_expr_worker(const struct expr* e, uint64_t *words, int* w) {
     }
     break;
   }
+  return 0;
 }
 
 uint64_t* encode_expr(const struct expr* e, int* len) {
   uint64_t *words = calloc(200, sizeof(uint32_t));
   *len = 0;
-  encode_expr_worker(e, words, len);
-  return words;
+  int x = encode_expr_worker(e, words, len);
+  if (x == 0) {
+    return words;
+  } else {
+    free(words);
+    return NULL;
+  }
 }
