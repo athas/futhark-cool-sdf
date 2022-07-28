@@ -357,24 +357,25 @@ struct expr* parse_expr(const char *input) {
   }
 }
 
-static void encode_expr_worker(const struct expr* e, uint32_t *words, int* w) {
+static void encode_expr_worker(const struct expr* e, uint64_t *words, int* w) {
   switch (e->tag) {
-  case VAR:
-    words[(*w)++] = 1;
+  case VAR: {
+    uint64_t v;
     if (strcmp(e->payload.var, "v") == 0) {
-      words[(*w)++] = 2;
+      v = 2;
     } else if (strcmp(e->payload.var, "u") == 0) {
-      words[(*w)++] = 1;
+      v = 1;
     } else if (strcmp(e->payload.var, "t") == 0) {
-      words[(*w)++] = 0;
+      v = 0;
     } else {
       fprintf(stderr, "Unknown variable: %s\n", e->payload.var);
       abort();
     }
+    words[(*w)++] = (v<<32) | 1;
+  }
     break;
   case VAL:
-    words[(*w)++] = 0;
-    words[(*w)++] = *(uint32_t*)(&e->payload.val);
+    words[(*w)++] = (*(uint64_t*)(&e->payload.val)) << 32;
     break;
   case BINOP:
     encode_expr_worker(e->payload.binop.lhs, words, w);
@@ -408,8 +409,8 @@ static void encode_expr_worker(const struct expr* e, uint32_t *words, int* w) {
   }
 }
 
-uint32_t* encode_expr(const struct expr* e, int* len) {
-  uint32_t *words = calloc(200, sizeof(uint32_t));
+uint64_t* encode_expr(const struct expr* e, int* len) {
+  uint64_t *words = calloc(200, sizeof(uint32_t));
   *len = 0;
   encode_expr_worker(e, words, len);
   return words;

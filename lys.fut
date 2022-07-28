@@ -10,37 +10,27 @@ type var = #t | #u | #v
 
 type inst' = inst var f32
 
-def decode [n] (words: [n]u32) : []inst' =
-  let (w,_,acc) =
-    loop (w,r,acc) = (0, 0, replicate n (#const 0)) while r < n do
-    let simple (acc: *[n]inst') inst =
-      (w+1,r+1,acc with [w] = inst)
-    in match words[r]
-       case 0 ->
-         (w+1,
-          r+2,
-          acc with [w] = #const (f32.from_bits words[r+1]))
-       case 1 ->
-         (w+1,
-          r+2,
-          acc with [w] = #var (match words[r+1]
-                               case 0 -> #t
-                               case 1 -> #u
-                               case _ -> #v))
-       case 2 -> simple acc #pop
-       case 3 -> simple acc #swap
-       case 4 -> simple acc #add
-       case 5 -> simple acc #sub
-       case 6 -> simple acc #mul
-       case 7 -> simple acc #div
-       case 8 -> simple acc #cos
-       case 9 -> simple acc #sin
-       case 10 ->
-         (w+1,
-          r+2,
-          acc with [w] = #over (i32.u32 words[r+1]))
-       case _ -> assert false (w,r+1,acc)
-  in take w acc
+def decode [n] (words: [n]u64) : []inst' =
+  let decode_one x =
+    match x&0xFF
+      case 0 ->
+         #const (f32.from_bits (u32.u64 (x>>32)))
+      case 1 ->
+         #var (match (x>>32)
+               case 0 -> #t
+               case 1 -> #u
+               case _ -> #v)
+      case 2 -> #pop
+      case 3 -> #swap
+      case 4 -> #add
+      case 5 -> #sub
+      case 6 -> #mul
+      case 7 -> #div
+      case 8 -> #cos
+      case 9 -> #sin
+      case 10 -> #over (i32.u64 (x>>32))
+      case _ -> #over 0
+  in map decode_one words
 
 def radius_at (program: []inst') t u v : f32 =
   let k = 4
@@ -177,5 +167,5 @@ entry init (_seed: u32) (h: i64) (w: i64): state =
    program = []
 }
 
-entry set_program (program: []u32) (s: state) : state =
+entry set_program (program: []u64) (s: state) : state =
   s with program = decode program

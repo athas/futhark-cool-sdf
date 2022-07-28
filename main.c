@@ -18,18 +18,19 @@
 
 struct internal {
   bool show_text;
-  uint32_t* program;
+  uint64_t* program;
   int program_len;
   pthread_mutex_t mutex;
 };
 
 void load_program(struct lys_context *ctx, struct internal *internal) {
-  struct futhark_u32_1d *program_arr = futhark_new_u32_1d(ctx->fut, internal->program, internal->program_len);
+  struct futhark_u64_1d *program_arr = futhark_new_u64_1d(ctx->fut, internal->program, internal->program_len);
   struct futhark_opaque_state *new_state;
   FUT_CHECK(ctx->fut, futhark_entry_set_program(ctx->fut, &new_state, program_arr, ctx->state));
+  FUT_CHECK(ctx->fut, futhark_context_sync(ctx->fut));
   FUT_CHECK(ctx->fut, futhark_free_opaque_state(ctx->fut, ctx->state));
   ctx->state = new_state;
-  FUT_CHECK(ctx->fut, futhark_free_u32_1d(ctx->fut, program_arr));
+  FUT_CHECK(ctx->fut, futhark_free_u64_1d(ctx->fut, program_arr));
   free(internal->program);
   internal->program = NULL;
 }
@@ -128,13 +129,12 @@ static void run_interactive(struct futhark_context *futctx,
 int main(int argc, char** argv) {
   (void)argc;
   (void)argv;
-  char *deviceopt = NULL;
-  bool device_interactive = false;
   struct futhark_context_config *futcfg;
   struct futhark_context *futctx;
-  char* opencl_device_name;
-  lys_setup_futhark_context(deviceopt, device_interactive,
-                            &futcfg, &futctx, &opencl_device_name);
+  futcfg = futhark_context_config_new();
+  assert(futcfg != NULL);
+  futhark_context_config_set_cache_file(futcfg, "main.cache");
+  futctx = futhark_context_new(futcfg);
 
   int width = 400, height = 400;
   int seed = 1337;
