@@ -3,6 +3,7 @@ with import <nixpkgs> {};
 
 mkShell {
   buildInputs = [
+    futhark
     pkgconfig
     SDL2
     SDL2_ttf
