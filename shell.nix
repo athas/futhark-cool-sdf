@@ -4,7 +4,7 @@ with import <nixpkgs> {};
 mkShell {
   buildInputs = [
     futhark
-    pkgconfig
+    pkg-config
     SDL2
     SDL2_ttf
     opencl-headers
