@@ -132,6 +132,9 @@ int main(int argc, char** argv) {
   struct futhark_context_config *futcfg;
   struct futhark_context *futctx;
   futcfg = futhark_context_config_new();
+  #ifdef FUTHARK_BACKEND_opencl
+  futhark_context_config_select_device_interactively(futcfg);
+  #endif
   assert(futcfg != NULL);
   futhark_context_config_set_cache_file(futcfg, "main.cache");
   futctx = futhark_context_new(futcfg);
